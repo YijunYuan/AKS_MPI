@@ -7,8 +7,9 @@
 #include <mpir.h>
 #include <math.h>
 #include <stdio.h>
-
+//#define EXPERIMENTAL
 ulong ui_log_2_n_sqr(fmpz_t& n,mpz_t& n_z){///The function is safe in the considerate range
+#ifndef EXPERIMENTAL
     mpfr_prec_t prec=512;
     mpz_t log2_n_sqr_u,log2_n_sqr_d;mpz_init(log2_n_sqr_d);mpz_init(log2_n_sqr_u);
     mpfr_t n_f;mpfr_init2(n_f,prec);mpfr_set_z(n_f,n_z,MPFR_RNDN);
@@ -28,8 +29,22 @@ ulong ui_log_2_n_sqr(fmpz_t& n,mpz_t& n_z){///The function is safe in the consid
         mpfr_log2(log2_n_f_d,n_f,MPFR_RNDD);mpfr_sqr(temp_f,log2_n_f_d,MPFR_RNDD);mpfr_get_z(log2_n_sqr_d,temp_f,MPFR_RNDU);
     }
     return mpz_get_ui(log2_n_sqr_u);
+#else
+    ;
+#endif
 }
 
+slong calc_pama(slong r_si,mpz_t n_z){
+    r_si=n_euler_phi(r_si);
+    long double res;
+    res=sqrtl(r_si);
+    mpfr_t t_f;
+    mpfr_init2(t_f,1024);mpfr_init_set_z(t_f,n_z,MPFR_RNDN);
+    mpfr_log2(t_f,t_f,MPFR_RNDN);res=mpfr_get_ld(t_f,MPFR_RNDN);
+    res*=sqrtl(r_si);
+    mpfr_clear(t_f);
+    return floorl(res);
+}
 int main(int argc,char* argv[]){
 
     int myid,numprocs;
@@ -59,17 +74,17 @@ int main(int argc,char* argv[]){
             MPI_Abort(MPI_COMM_WORLD,1);
         }
         /*Step 2-- Find the r*/
-        ulong r_ui=0;
+        slong r_si=0;
         ulong log2_n_sqr_ui=ui_log_2_n_sqr(n,n_z);
-        if(fmpz_bits(n)<7001){//r can be contained in a 64-bit ulong type safely
+        if(fmpz_bits(n)<6205){//r can be contained in a 63-bit slong type safely
             __uint128_t res;///This marco is only supported in the x86_64 GCC, to ensure the safety
             ulong count;
-            for(r_ui=log2_n_sqr_ui;;r_ui++){
+            for(r_si=log2_n_sqr_ui;;r_si++){
                 count=0;res=1;
-                temp_ui=fmpz_fdiv_ui(n,r_ui);
-                if(n_gcd(r_ui,temp_ui)>1)continue;
+                temp_ui=fmpz_fdiv_ui(n,r_si);
+                if(n_gcd(r_si,temp_ui)>1)continue;
                 while(1){
-                    res=(res*temp_ui)%r_ui;
+                    res=(res*temp_ui)%r_si;
                     count++;
                     if(res==1&&count<=log2_n_sqr_ui)
                         break;
@@ -85,8 +100,8 @@ int main(int argc,char* argv[]){
             MPI_Abort(MPI_COMM_WORLD,1);
         }
         /*Step 3*/
-        ulong a=2;
-        for(a=2;a<=r_ui;a++){
+        slong a=2;
+        for(a=2;a<=r_si;a++){
             if(n_gcd(a,temp_ui)>1){
                 end_time=MPI_Wtime();
                 printf("\n\nResult:\t0\nTotal time:\t%.12lf\n\n",end_time-start_time);
@@ -97,7 +112,7 @@ int main(int argc,char* argv[]){
         }
 
         /*Step 4*/
-        if(fmpz_cmp_ui(n,5690034)<=0&&fmpz_cmp_ui(n,r_ui)<=0){
+        if(fmpz_cmp_ui(n,5690034)<=0&&fmpz_cmp_si(n,r_si)<=0){
             end_time=MPI_Wtime();
             printf("\n\nResult:\t1\nTotal time:\t%.12lf\n\n",end_time-start_time);
             mpz_clear(n_z);
