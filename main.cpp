@@ -118,13 +118,25 @@ int main(int argc,char* argv[]){
             MPI_Abort(MPI_COMM_WORLD,1);
         }
         /*Step 2-- Find the r*/
-        ulong r_ui=0;
+        ulong r_ui=0,res,count;
         ulong log2_n_sqr_ui=ui_log_2_n_sqr(n,n_z);
         if(fmpz_bits(n)<7001){//r can be contained in a 64-bit ulong type safely
             for(r_ui=log2_n_sqr_ui;;r_ui++){
+                count=0;res=1;
                 temp_ui=fmpz_fdiv_ui(n,r_ui);
-                if(n_gcd())
+                if(n_gcd(r_ui,temp_ui)>1)continue;
+                while(1){
+                    res=(tes*temp_ui)%r_ui;
+                    count++;
+                    if(res==1&&count<=log2_n_sqr_ui)
+                        break;
+                    if(count==log2_n_sqr_ui)
+                        goto ext;
+
+                }
             }
+            ext:;
+
         }
         else{
             for(fmpz_set_ui(r,log2_n_sqr_ui+1);;fmpz_add_ui(r,r,1)){
