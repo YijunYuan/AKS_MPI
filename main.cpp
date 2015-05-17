@@ -7,35 +7,133 @@
 #include <mpir.h>
 #include <math.h>
 #include <stdio.h>
+
+#define MPFR_DEFAULT_PREC 512
 //#define EXPERIMENTAL
+
 ulong ui_log_2_n_sqr(fmpz_t& n,mpz_t& n_z){///The function is safe in the considerate range
 #ifndef EXPERIMENTAL
-    mpfr_prec_t prec=512;
-    mpz_t log2_n_sqr_u,log2_n_sqr_d;mpz_init(log2_n_sqr_d);mpz_init(log2_n_sqr_u);
-    mpfr_t n_f;mpfr_init2(n_f,prec);mpfr_set_z(n_f,n_z,MPFR_RNDN);
-    mpfr_t log2_n_f_u,log2_n_f_d,temp_f;mpfr_init2(log2_n_f_d,prec);mpfr_init2(log2_n_f_u,prec);mpfr_init2(temp_f,prec);
-    mpfr_log2(log2_n_f_u,n_f,MPFR_RNDU);mpfr_sqr(temp_f,log2_n_f_u,MPFR_RNDU);mpfr_get_z(log2_n_sqr_u,temp_f,MPFR_RNDU);
-    mpfr_log2(log2_n_f_d,n_f,MPFR_RNDD);mpfr_sqr(temp_f,log2_n_f_d,MPFR_RNDD);mpfr_get_z(log2_n_sqr_d,temp_f,MPFR_RNDU);
-    while(mpz_cmp(log2_n_sqr_d,log2_n_sqr_u)){//Ensure the precision is enough, add 64-bits each time
+    mpfr_prec_t prec=MPFR_DEFAULT_PREC;
+
+    mpz_t res_u,res_d;
+    mpz_init(res_d);
+    mpz_init(res_u);
+
+    mpfr_t n_f;
+    mpfr_init2(n_f,prec);
+    mpfr_set_z(n_f,n_z,MPFR_RNDN);
+
+    mpfr_t log2_n_f_u,log2_n_f_d,temp_f;
+    mpfr_init2(log2_n_f_d,prec);
+    mpfr_init2(log2_n_f_u,prec);
+    mpfr_init2(temp_f    ,prec);
+
+    mpfr_log2 (log2_n_f_u,n_f       ,MPFR_RNDU);
+    mpfr_sqr  (temp_f    ,log2_n_f_u,MPFR_RNDU);
+    mpfr_get_z(res_u     ,temp_f    ,MPFR_RNDU);
+
+    mpfr_log2 (log2_n_f_d,n_f       ,MPFR_RNDD);
+    mpfr_sqr  (temp_f    ,log2_n_f_d,MPFR_RNDD);
+    mpfr_get_z(res_d     ,temp_f    ,MPFR_RNDU);
+
+    while(mpz_cmp(res_d,res_u)){
         if(prec>MPFR_PREC_MAX-257){
             printf("Precision is not enough when calculating. Abort.\n");
             MPI_Abort(MPI_COMM_WORLD,-1);
         }
         prec+=256;
         mpfr_prec_round(log2_n_f_u,prec,MPFR_RNDU);
-        mpfr_prec_round(log2_n_f_d,prec,MPFR_RNDU);
-        mpfr_prec_round(temp_f    ,prec,MPFR_RNDU);
-        mpfr_log2(log2_n_f_u,n_f,MPFR_RNDU);mpfr_sqr(temp_f,log2_n_f_u,MPFR_RNDU);mpfr_get_z(log2_n_sqr_u,temp_f,MPFR_RNDU);
-        mpfr_log2(log2_n_f_d,n_f,MPFR_RNDD);mpfr_sqr(temp_f,log2_n_f_d,MPFR_RNDD);mpfr_get_z(log2_n_sqr_d,temp_f,MPFR_RNDU);
+        mpfr_prec_round(log2_n_f_d,prec,MPFR_RNDD);
+        mpfr_prec_round(temp_f    ,prec,MPFR_RNDN);
+
+        mpfr_log2 (log2_n_f_u,n_f       ,MPFR_RNDU);
+        mpfr_sqr  (temp_f    ,log2_n_f_u,MPFR_RNDU);
+        mpfr_get_z(res_u     ,temp_f    ,MPFR_RNDU);
+
+        mpfr_log2 (log2_n_f_d,n_f       ,MPFR_RNDD);
+        mpfr_sqr  (temp_f    ,log2_n_f_d,MPFR_RNDD);
+        mpfr_get_z(res_d     ,temp_f    ,MPFR_RNDU);
     }
-    return mpz_get_ui(log2_n_sqr_u);
+
+    mpfr_clear(n_f       );
+    mpfr_clear(log2_n_f_u);
+    mpfr_clear(log2_n_f_d);
+    mpfr_clear(temp_f    );
+    mpz_clear (res_d     );
+
+    return mpz_get_ui(res_u);
 #else
-    ;
+    mpfr_t q;
+    mpfr_init2(q,1024);
+    mpfr_set_z(q,n_z,MPFR_RNDN);
+    mpfr_log2(q,q,MPFR_RNDN);
+    mpfr_sqr(q,q,MPFR_RNDU);
+    return ceill(mpfr_get_ld(q,MPFR_RNDU));
 #endif
 }
 
-slong calc_pama(slong r_si,mpz_t n_z){
+ulong calc_pama(slong r_si,mpz_t n_z){
     r_si=n_euler_phi(r_si);
+#ifndef EXPERIMENTAL
+    mpfr_prec_t prec=MPFR_DEFAULT_PREC;
+
+    mpfr_t r_elr,n_f;
+
+    mpfr_init2(r_elr,prec);
+    mpfr_set_ui(r_elr,r_si,MPFR_RNDN);
+
+    mpfr_init2(n_f,prec);
+    mpfr_set_z(n_f,n_z,MPFR_RNDN);
+
+    mpfr_t log2_n_u,log2_n_d,temp_f;
+    mpfr_init2(log2_n_u,prec);
+    mpfr_init2(log2_n_d,prec);
+    mpfr_init2(temp_f,prec);
+
+    mpz_t res_u,res_d;
+    mpz_init(res_u);mpz_init(res_d);
+
+    mpfr_sqr  (temp_f  ,r_elr ,MPFR_RNDU);
+    mpfr_log2 (log2_n_u,n_f   ,MPFR_RNDU);
+    mpfr_mul  (temp_f  ,temp_f,log2_n_u ,MPFR_RNDU);
+    mpfr_get_z(res_u   ,temp_f,MPFR_RNDD);
+
+    mpfr_sqr  (temp_f  ,r_elr ,MPFR_RNDD);
+    mpfr_log2 (log2_n_d,n_f   ,MPFR_RNDD);
+    mpfr_mul  (temp_f  ,temp_f,log2_n_d ,MPFR_RNDD);
+    mpfr_get_z(res_d   ,temp_f,MPFR_RNDD);
+
+    while(mpz_cmp(res_d,res_u)){
+        if(prec>MPFR_PREC_MAX-257){
+            printf("Precision is not enough when calculating. Abort.\n");
+            MPI_Abort(MPI_COMM_WORLD,-1);
+        }
+        prec+=256;
+        mpfr_prec_round(log2_n_u,prec,MPFR_RNDU);
+        mpfr_prec_round(log2_n_d,prec,MPFR_RNDD);
+        mpfr_prec_round(temp_f,prec,MPFR_RNDN);
+
+        mpfr_sqr  (temp_f  ,r_elr ,MPFR_RNDU);
+        mpfr_log2 (log2_n_u,n_f   ,MPFR_RNDU);
+        mpfr_mul  (temp_f  ,temp_f,log2_n_u ,MPFR_RNDU);
+        mpfr_get_z(res_u   ,temp_f,MPFR_RNDD);
+
+        mpfr_sqr  (temp_f  ,r_elr ,MPFR_RNDD);
+        mpfr_log2 (log2_n_d,n_f   ,MPFR_RNDD);
+        mpfr_mul  (temp_f  ,temp_f,log2_n_d ,MPFR_RNDD);
+        mpfr_get_z(res_d   ,temp_f,MPFR_RNDD);
+    }
+
+    mpfr_clear(r_elr   );
+    mpfr_clear(n_f     );
+    mpfr_clear(log2_n_u);
+    mpfr_clear(log2_n_d);
+    mpfr_clear(temp_f  );
+    mpz_clear (res_d   );
+
+    return mpz_get_ui(res_u);
+
+#else
     long double res;
     res=sqrtl(r_si);
     mpfr_t t_f;
@@ -44,7 +142,9 @@ slong calc_pama(slong r_si,mpz_t n_z){
     res*=sqrtl(r_si);
     mpfr_clear(t_f);
     return floorl(res);
+#endif // EXPERIMENTAL
 }
+
 int main(int argc,char* argv[]){
 
     int myid,numprocs;
@@ -75,20 +175,20 @@ int main(int argc,char* argv[]){
         }
         /*Step 2-- Find the r*/
         slong r_si=0;
-        ulong log2_n_sqr_ui=ui_log_2_n_sqr(n,n_z);
+        ulong res_ui=ui_log_2_n_sqr(n,n_z);
         if(fmpz_bits(n)<6205){//r can be contained in a 63-bit slong type safely
             __uint128_t res;///This marco is only supported in the x86_64 GCC, to ensure the safety
             ulong count;
-            for(r_si=log2_n_sqr_ui;;r_si++){
+            for(r_si=res_ui;;r_si++){
                 count=0;res=1;
                 temp_ui=fmpz_fdiv_ui(n,r_si);
                 if(n_gcd(r_si,temp_ui)>1)continue;
                 while(1){
                     res=(res*temp_ui)%r_si;
                     count++;
-                    if(res==1&&count<=log2_n_sqr_ui)
+                    if(res==1&&count<=res_ui)
                         break;
-                    if(count==log2_n_sqr_ui)
+                    if(count==res_ui)
                         goto ext;
                 }
             }
@@ -119,6 +219,8 @@ int main(int argc,char* argv[]){
             fmpz_clear(n);
             MPI_Abort(MPI_COMM_WORLD,0);
         }
+
+
     }else{
 ;
     }
