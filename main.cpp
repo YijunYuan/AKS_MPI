@@ -11,7 +11,7 @@
 #define MPFR_DEFAULT_PREC 512
 //#define EXPERIMENTAL
 
-ulong ui_log_2_n_sqr(fmpz_t& n,mpz_t& n_z){///The function is safe in the considerate range
+ulong ui_log_2_n_sqr(mpz_t n_z){///The function is safe in the considerate range
 #ifndef EXPERIMENTAL
     mpfr_prec_t prec=MPFR_DEFAULT_PREC;
 
@@ -175,7 +175,7 @@ int main(int argc,char* argv[]){
         }
         /*Step 2-- Find the r*/
         slong r_si=0;
-        ulong res_ui=ui_log_2_n_sqr(n,n_z);
+        ulong res_ui=ui_log_2_n_sqr(n_z);
         if(fmpz_bits(n)<6205){//r can be contained in a 63-bit slong type safely
             __uint128_t res;///This marco is only supported in the x86_64 GCC, to ensure the safety
             ulong count;
