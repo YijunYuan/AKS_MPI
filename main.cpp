@@ -11,7 +11,7 @@
 #define MPFR_DEFAULT_PREC 512
 //#define EXPERIMENTAL
 
-ulong ui_log_2_n_sqr(mpz_t n_z){///The function is safe in the considerate range
+ulong ui_log_2_n_sqr(mpz_t n_z){
 #ifndef EXPERIMENTAL
     mpfr_prec_t prec=MPFR_DEFAULT_PREC;
 
