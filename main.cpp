@@ -7,7 +7,7 @@
 #include <mpir.h>
 #include <math.h>
 #include <stdio.h>
-
+#include <stdbool.h>
 #define MPFR_DEFAULT_PREC 512
 //#define EXPERIMENTAL
 
@@ -146,7 +146,10 @@ ulong calc_pama(slong r_si,mpz_t n_z){
 }
 
 int main(int argc,char* argv[]){
-
+    char* n_str;
+    ulong pama;
+    slong r_si;
+    slong n_mod_r;
     int myid,numprocs;
     double start_time,end_time;
     MPI_Init(&argc,&argv);
@@ -154,7 +157,7 @@ int main(int argc,char* argv[]){
     MPI_Comm_size(MPI_COMM_WORLD,&numprocs);
     printf("This is thread %d of %d in total\n",myid,numprocs);
     if(myid==0){
-        ulong temp_ui;
+        ulong temp_ui=0;
         /*Read the test data from file*/
         printf("Reading the test data from file...\n");
         fmpz_t n;fmpz_init(n);
@@ -174,7 +177,7 @@ int main(int argc,char* argv[]){
             MPI_Abort(MPI_COMM_WORLD,1);
         }
         /*Step 2-- Find the r*/
-        slong r_si=0;
+        r_si=0;
         ulong res_ui=ui_log_2_n_sqr(n_z);
         if(fmpz_bits(n)<6205){//r can be contained in a 63-bit slong type safely
             __uint128_t res;///This marco is only supported in the x86_64 GCC, to ensure the safety
@@ -220,10 +223,30 @@ int main(int argc,char* argv[]){
             MPI_Abort(MPI_COMM_WORLD,0);
         }
 
+        /*Step 5*/
+        pama=calc_pama(r_si,n_z);
+        n_str=fmpz_get_str(NULL,10,n);
+        n_mod_r=temp_ui;
 
-    }else{
-;
+    }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Bcast(n_str   ,strlen(n_str)+1,MPI_CHAR              ,0,MPI_COMM_WORLD);
+    MPI_Bcast(&pama   ,1              ,MPI_UNSIGNED_LONG_LONG,0,MPI_COMM_WORLD);
+    MPI_Bcast(&r_si   ,1              ,MPI_LONG_LONG         ,0,MPI_COMM_WORLD);
+    MPI_Bcast(&n_mod_r,1              ,MPI_LONG_LONG         ,0,MPI_COMM_WORLD);
+
+
+    if(myid==0){
+        MPI_Status sta;
+        _Bool tag=false;
+        long i;
+        for(i=1;i<numprocs;i++){
+            MPI_Recv(&tag,1,MPI_C_BOOL,MPI_ANY_SOURCE,MPI_ANY_TAG,MPI_COMM_WORLD,&sta);
+        }
     }
     MPI_Finalize();
+
+    return 0;
 }
 
